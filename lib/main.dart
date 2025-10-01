@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 
-const String apiKey = 'Pixabay docs on api consumption:https://pixabay.com/api/docs/'; // Replace with your actual Pixabay API key from https://pixabay.com/api/docs/
+const String apiKey = 'https://pixabay.com/api/';// Replace with your actual Pixabay API key from https://pixabay.com/api/docs/
 
 class PixabayImage {
   final String id;
@@ -113,7 +113,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Pixabay Dashboard',
-      theme: ThemeData(primarySwatch: Colors.blue),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+      ),
       home: const ResponsiveDashboard(),
     );
   }
@@ -164,18 +167,118 @@ class _ResponsiveDashboardState extends State<ResponsiveDashboard> {
                   return Center(child: Text('Error: ${notifier.error}'));
                 }
                 return GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    crossAxisSpacing: 4.0,
-                    mainAxisSpacing: 4.0,
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 200,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                    childAspectRatio: 0.75,
                   ),
                   itemCount: notifier.images.length,
                   itemBuilder: (context, index) {
                     final image = notifier.images[index];
-                    return CachedNetworkImage(
-                      imageUrl: image.webformatURL,
-                      placeholder: (context, url) => const CircularProgressIndicator(),
-                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                    return GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            contentPadding: EdgeInsets.zero,
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Image.network(image.largeImageURL),
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text(
+                                    image.tags,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Likes: ${image.likes}'),
+                                      Text('Views: ${image.views}'),
+                                    ],
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text('User: ${image.user}'),
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(context).pop(),
+                                child: const Text('Close'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CachedNetworkImage(
+                                imageUrl: image.webformatURL,
+                                fit: BoxFit.cover,
+                                placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                errorWidget: (context, url, error) => const Icon(Icons.error),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      image.tags,
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.thumb_up, size: 12, color: Colors.white70),
+                                            const SizedBox(width: 4),
+                                            Text('${image.likes}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.visibility, size: 12, color: Colors.white70),
+                                            const SizedBox(width: 4),
+                                            Text('${image.views}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     );
                   },
                 );
@@ -207,17 +310,33 @@ class SidebarMenu extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: TextField(
-            controller: searchController,
-            decoration: const InputDecoration(
-              labelText: 'Search Images',
-              border: OutlineInputBorder(),
-            ),
-            onSubmitted: (query) {
-              if (query.isNotEmpty) {
-                context.read<ImageNotifier>().fetchImages(query);
-              }
-            },
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: searchController,
+                  decoration: const InputDecoration(
+                    labelText: 'Search Images',
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (query) {
+                    if (query.isNotEmpty) {
+                      context.read<ImageNotifier>().fetchImages(query);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  final query = searchController.text;
+                  if (query.isNotEmpty) {
+                    context.read<ImageNotifier>().fetchImages(query);
+                  }
+                },
+                child: const Icon(Icons.search),
+              ),
+            ],
           ),
         ),
         ListTile(
