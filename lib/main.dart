@@ -1,122 +1,244 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+
+const String apiKey = 'Pixabay docs on api consumption:https://pixabay.com/api/docs/'; // Replace with your actual Pixabay API key from https://pixabay.com/api/docs/
+
+class PixabayImage {
+  final String id;
+  final String pageURL;
+  final String type;
+  final String tags;
+  final String previewURL;
+  final String webformatURL;
+  final String largeImageURL;
+  final int views;
+  final int downloads;
+  final int likes;
+  final int comments;
+  final int user_id;
+  final String user;
+  final String userImageURL;
+
+  PixabayImage({
+    required this.id,
+    required this.pageURL,
+    required this.type,
+    required this.tags,
+    required this.previewURL,
+    required this.webformatURL,
+    required this.largeImageURL,
+    required this.views,
+    required this.downloads,
+    required this.likes,
+    required this.comments,
+    required this.user_id,
+    required this.user,
+    required this.userImageURL,
+  });
+
+  factory PixabayImage.fromJson(Map<String, dynamic> json) {
+    return PixabayImage(
+      id: json['id'].toString(),
+      pageURL: json['pageURL'],
+      type: json['type'],
+      tags: json['tags'],
+      previewURL: json['previewURL'],
+      webformatURL: json['webformatURL'],
+      largeImageURL: json['largeImageURL'],
+      views: json['views'],
+      downloads: json['downloads'],
+      likes: json['likes'],
+      comments: json['comments'],
+      user_id: json['user_id'],
+      user: json['user'],
+      userImageURL: json['userImageURL'],
+    );
+  }
+}
+
+class PixabayService {
+  static Future<List<PixabayImage>> fetchImages(String query) async {
+    final url = 'https://pixabay.com/api/?key=$apiKey&q=$query&image_type=photo&per_page=20';
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final hits = data['hits'] as List;
+      return hits.map((json) => PixabayImage.fromJson(json)).toList();
+    } else {
+      throw Exception('Failed to load images');
+    }
+  }
+}
+
+class ImageNotifier extends ChangeNotifier {
+  List<PixabayImage> _images = [];
+  bool _isLoading = false;
+  String _error = '';
+
+  List<PixabayImage> get images => _images;
+  bool get isLoading => _isLoading;
+  String get error => _error;
+
+  Future<void> fetchImages(String query) async {
+    _isLoading = true;
+    _error = '';
+    notifyListeners();
+    try {
+      _images = await PixabayService.fetchImages(query);
+    } catch (e) {
+      _error = e.toString();
+    }
+    _isLoading = false;
+    notifyListeners();
+  }
+}
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => ImageNotifier(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      debugShowCheckedModeBanner: false,
+      title: 'Pixabay Dashboard',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const ResponsiveDashboard(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class ResponsiveDashboard extends StatefulWidget {
+  const ResponsiveDashboard({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<ResponsiveDashboard> createState() => _ResponsiveDashboardState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _ResponsiveDashboardState extends State<ResponsiveDashboard> {
+  final TextEditingController _searchController = TextEditingController();
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+  @override
+  void initState() {
+    super.initState();
+    // Fetch default images
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ImageNotifier>().fetchImages('nature');
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final isWideScreen = MediaQuery.of(context).size.width >= 600;
+
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text("Pixabay Dashboard"),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: Row(
+        children: [
+          if (isWideScreen)
+            Container(
+              width: 200,
+              color: Colors.blue[50],
+              child: SidebarMenu(searchController: _searchController),
             ),
-          ],
-        ),
+          Expanded(
+            child: Consumer<ImageNotifier>(
+              builder: (context, notifier, child) {
+                if (notifier.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (notifier.error.isNotEmpty) {
+                  return Center(child: Text('Error: ${notifier.error}'));
+                }
+                return GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 4.0,
+                    mainAxisSpacing: 4.0,
+                  ),
+                  itemCount: notifier.images.length,
+                  itemBuilder: (context, index) {
+                    final image = notifier.images[index];
+                    return CachedNetworkImage(
+                      imageUrl: image.webformatURL,
+                      placeholder: (context, url) => const CircularProgressIndicator(),
+                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+      drawer: isWideScreen ? null : Drawer(child: SidebarMenu(searchController: _searchController)),
+    );
+  }
+}
+
+class SidebarMenu extends StatelessWidget {
+  final TextEditingController searchController;
+
+  const SidebarMenu({super.key, required this.searchController});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      children: [
+        const DrawerHeader(
+          decoration: BoxDecoration(color: Colors.blue),
+          child: Text(
+            "Menu",
+            style: TextStyle(color: Colors.white, fontSize: 20),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: TextField(
+            controller: searchController,
+            decoration: const InputDecoration(
+              labelText: 'Search Images',
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (query) {
+              if (query.isNotEmpty) {
+                context.read<ImageNotifier>().fetchImages(query);
+              }
+            },
+          ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.home),
+          title: const Text("Dashboard"),
+          onTap: () {
+            // Already on dashboard
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.image),
+          title: const Text("Images"),
+          onTap: () {
+            // Already showing images
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.settings),
+          title: const Text("Settings"),
+        ),
+      ],
     );
   }
 }
