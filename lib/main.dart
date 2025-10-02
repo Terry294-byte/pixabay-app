@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 
-const String apiKey = 'https://pixabay.com/api/';// Replace with your actual Pixabay API key from https://pixabay.com/api/docs/
+const String apiKey = '52558185-f16088b1e079a8ba98e7a1089'; // Replace with your actual Pixabay API key from https://pixabay.com/api/docs/
 
 class PixabayImage {
   final String id;
@@ -61,14 +61,14 @@ class PixabayImage {
 
 class PixabayService {
   static Future<List<PixabayImage>> fetchImages(String query) async {
-    final url = 'https://pixabay.com/api/?key=$apiKey&q=$query&image_type=photo&per_page=20';
+    final url = 'https://pixabay.com/api/?key=52558185-f16088b1e079a8ba98e7a1089&q=nature&image_type=photo';
     final response = await http.get(Uri.parse(url));
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       final hits = data['hits'] as List;
       return hits.map((json) => PixabayImage.fromJson(json)).toList();
     } else {
-      throw Exception('Failed to load images');
+      throw Exception('Failed to load images: ${response.statusCode} ${response.reasonPhrase}');
     }
   }
 }
@@ -301,42 +301,21 @@ class SidebarMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        const DrawerHeader(
-          decoration: BoxDecoration(color: Colors.blue),
-          child: Text(
-            "Menu",
-            style: TextStyle(color: Colors.white, fontSize: 20),
-          ),
-        ),
+        // Removed DrawerHeader to eliminate blue part
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: searchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Search Images',
-                    border: OutlineInputBorder(),
-                  ),
-                  onSubmitted: (query) {
-                    if (query.isNotEmpty) {
-                      context.read<ImageNotifier>().fetchImages(query);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () {
-                  final query = searchController.text;
-                  if (query.isNotEmpty) {
-                    context.read<ImageNotifier>().fetchImages(query);
-                  }
-                },
-                child: const Icon(Icons.search),
-              ),
-            ],
+          child: TextField(
+            controller: searchController,
+            decoration: InputDecoration(
+              labelText: 'Search Images',
+              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.search),
+            ),
+            onSubmitted: (query) {
+              if (query.isNotEmpty) {
+                context.read<ImageNotifier>().fetchImages(query);
+              }
+            },
           ),
         ),
         ListTile(
